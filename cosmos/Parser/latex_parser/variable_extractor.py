@@ -2,6 +2,7 @@ from Naked.toolshed.shell import muterun_js
 from lxml import etree
 import click
 import os
+import re
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -31,8 +32,10 @@ def get_variables(latex):
     if response.stdout == b'-1\n' or not response.stdout:
         yield -1
         return
-
-    tree = etree.fromstring(response.stdout)
+    katex_output = re.sub(r'^[^<]*<','<',response.stdout.decode("utf-8"))
+    print(katex_output)
+    print('*************************************************************')
+    tree = etree.fromstring(katex_output.encode("utf-8"))
     ast = tree.xpath('.//semantics')[0]
     count = 0
 
