@@ -9,9 +9,41 @@ from fonduer import Meta
 from fonduer.parser.models import Document, Sentence
 import json
 
+from fonduer.meta import Meta as Mt
+from sqlalchemy import Column, Integer, String, Text
+from sqlalchemy.dialects import postgresql
+from os.path import join
+
+STR_ARRAY_TYPE = postgresql.ARRAY(String)
+_meta = Mt.init()
+
+class Latex(_meta.Base):
+    __tablename__ = "latexsentence"
+
+    id = Column(Integer, primary_key=True)
+
+    name = Column(String, unique=False, nullable=True)
+
+    #: The id of the parent ``Document``.
+    document_id = Column(Integer)
+
+    #: The id of the parent ``Section``.
+    section_id = Column(Integer)
+    #: The parent ``Section``.
+
+    #: The id of the parent ``Paragraph``.
+    paragraph_id = Column(Integer)
+
+    #: The full text of the ``Sentence``.
+    text = Column(Text, nullable=False)
+
+    #: A list of the words in a ``Sentence``.
+    tokens = Column(STR_ARRAY_TYPE)
+
 
 def link(words_location, db_connect_str, ignored_files=[]):
     session = Meta.init(db_connect_str).Session()
+    print("Type of session: "+str(type(session)))
 
     def get_word_bag(html_source):
         with open(words_location + html_source + '.html.json', encoding='utf-8') as words:
@@ -47,6 +79,7 @@ def link(words_location, db_connect_str, ignored_files=[]):
         for sent in sentences:
             coordinates_record = defaultdict(list)
             tokenized_words = sent.text.split()
+            latex_tokens = []
 
             def add_to_coordinate_record_list(current_idx_json):
                 current_word_from_bag = word_bag[current_idx_json]
@@ -63,6 +96,7 @@ def link(words_location, db_connect_str, ignored_files=[]):
 
             for word in tokenized_words:
                 add_to_coordinate_record_list(word_bag_count)
+                latex_tokens.append(word_bag[word_bag_count]['latex'])
                 if same(word, word_bag[word_bag_count]['text']):
                     word_bag_count += 1
                 else:
@@ -71,6 +105,17 @@ def link(words_location, db_connect_str, ignored_files=[]):
                         # loguru.logger.debug("%s : %s" % (str_buffer, word_bag[word_bag_count]['text']))
                         str_buffer = ''
                         word_bag_count += 1
+
+            l = Latex(
+                document_id = sent.document_id,
+                name = sent.name,
+                section_id = sent.section_id,
+                paragraph_id = sent.paragraph_id,
+                text = sent.text,
+                tokens = latex_tokens
+            )
+
+            session.add(l)
 
             sent.top = coordinates_record['top']
             sent.left = coordinates_record['left']

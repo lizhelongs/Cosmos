@@ -46,25 +46,29 @@ def get_ocr_segments(root):
     assert 'page' in root.attrib
     yield from root
 
-
 def get_all_words_with_coordinates(root):
     for child in get_ocr_segments(root):
         type = child.attrib['class']
         try:
             meta_node = child.xpath(".//*[@class='hocr']")[0]
+            latex_node = child.xpath(".//*[@class='hocr_img2latex']")[0]
             assert len(child.xpath(".//*[@class='hocr']")) == 1
             base_x, base_y = get_data_coordinate_pattern(meta_node.attrib['data-coordinates'])
             page_num = root.attrib['page']
-            for word in child.xpath(".//*[@class='ocrx_word']"):
+            for word in meta_node.xpath(".//*[@class='ocrx_word']"):
                 if word.text.strip():
                     # print(word.text)
+                    word_id = word.attrib['id']
+                    latex = latex_node.xpath(".//*[@id='"+word_id+"']")[0]
                     yield {
                         'text': word.text,
                         'type': type,
+                        'latex': latex.text,
                         'word_bbox': coordinate(word.attrib['title'], base_x, base_y, page_num),
                         'line_bbox': coordinate(word.getparent().attrib['title'], base_x, base_y, page_num),
                         'area_bbox': coordinate(word.getparent().getparent().attrib['title'], base_x, base_y, page_num),
                     }
+            latex_node.getparent().remove(latex_node)
         except:
             loguru.logger.debug('hocr class not found ' + INPUT_FILE)
 
@@ -86,15 +90,19 @@ def generate_rawtext_from_ocrx(root):
                 loguru.logger.debug(rawtext_node.text)
                 if rawtext_node.text:
                     rawtext_node.text = rawtext_node.text.replace('\n', ' ')
+                else:
+                    rawtext_node.text = 'null'
             except AssertionError:
                 loguru.logger.debug('Rawtext not found ' + INPUT_FILE)
             continue
         rawtext = []
-        for paragraph in ocr_segment.xpath(".//*[@class='ocr_par']"):
-            words = []
-            for word in paragraph.xpath(".//*[@class='ocrx_word']"):
-                words.append(word.text)
-            rawtext.append(' '.join(words))
+        
+        for hocr in ocr_segment.xpath(".//*[@class='hocr']"):
+        	for paragraph in hocr.xpath(".//*[@class='ocr_par']"):
+        		words = []
+        		for word in paragraph.xpath(".//*[@class='ocrx_word']"):
+        			words.append(word.text)
+        		rawtext.append(' '.join(words))
         try:
             assert len(ocr_segment.xpath(".//*[@class='rawtext']")) == 1
             rawtext_node = ocr_segment.xpath(".//*[@class='rawtext']")[0]
@@ -113,7 +121,8 @@ def remove_ocr_img_for_non_img(root):
 
 def img_segment_clean_up(root):
     for child in root.xpath(".//*[@class='Figure']//*"):
-        if child.tag == 'img' or ('class' in child.attrib and child.attrib['class'] == 'hocr'):
+        if child.tag == 'img' or ('class' in child.attrib and child.attrib['class'] == 'hocr') or \
+            'class' in child.attrib and child.attrib['class'] == 'hocr_img2latex':
             continue
         child.getparent().remove(child)
 
@@ -190,3 +199,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     preprocess(args.input, args.output_words, args.output_html, args.output_equation, args.strip_tags)
+

@@ -63,6 +63,9 @@ def insert_equation_tuple(db, resource_loc):
     session = Meta.init(db).Session()
     for doc in session.query(Document):
         locs = json.load(open(join(resource_loc, '%s.html.json' % doc.name)))
+        print(join(resource_loc, '%s.html.json' % doc.name))
+        print("locs:")
+        print(len(locs))
         locs_counter = 0
         eqs_groupby_section_para = defaultdict(lambda: defaultdict(list))
         for sent in session.query(Sentence).filter(Sentence.document_id == doc.id):
@@ -81,6 +84,8 @@ def insert_equation_tuple(db, resource_loc):
                 if len(variables) == 0 or variables[0] == -1:
                     variables = None
 
+                print('counter: '+str(locs_counter))
+                print('doc_id: '+str(doc.id))
                 e = Equation(
                     name='Equation', document_id=doc.id, section_id=sec_id, paragraph_id=paragraph_id,
                     latex=latex_code, variables=variables,

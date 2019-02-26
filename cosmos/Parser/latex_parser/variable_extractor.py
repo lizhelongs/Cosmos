@@ -27,6 +27,13 @@ def get_variables(latex):
     processed = processed.replace('\\', '[backslash]')
     processed = processed.replace('(', '{')
     processed = processed.replace(')', '}')
+    print('length of processed: '+str(len(processed)))
+    if len(processed) > 1000:
+        processed = processed[:1000]
+        print('After truncate: '+str(len(processed)))
+
+    #print(processed)
+    #print('***********************************************************')
 
     response = muterun_js(os.path.join(CURRENT_DIR, 'katex/parse.js'), processed)
     if response.stdout == b'-1\n' or not response.stdout:
@@ -34,7 +41,11 @@ def get_variables(latex):
         return
     katex_output = re.sub(r'^[^<]*<','<',response.stdout.decode("utf-8"))
     print(katex_output)
-    print('*************************************************************')
+    print('##################################################################')
+
+    if not katex_output.startswith('<') or 'NegativeThinSpace' in katex_output:
+        yield -1
+        return
     tree = etree.fromstring(katex_output.encode("utf-8"))
     ast = tree.xpath('.//semantics')[0]
     count = 0
